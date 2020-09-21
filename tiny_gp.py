@@ -3,6 +3,7 @@ from random import random, randint, seed
 from statistics import mean
 from copy import deepcopy
 import math
+import pandas as pd
 
 POP_SIZE = 60  # population size
 MIN_DEPTH = 2  # minimal initial random tree depth
@@ -15,9 +16,9 @@ PROB_MUTATION = 0.2  # per-node mutation probability
 
 class Functions:
 
-    def __init__(self,price_series,volume_series,time):
+    def __init__(self, price_series, volume_series, time):
         self.price = price_series
-        self.volum = volume_series
+        self.volume = volume_series
         self.current_time = time
 
     @staticmethod
@@ -65,33 +66,47 @@ class Functions:
         if p_v:
             return self.price[self.current_time - n, self.current_time] / n
         else:
-            return self.volum[self.current_time - n, self.current_time] / n
+            return self.volume[self.current_time - n, self.current_time] / n
 
     def max(self, p_v, n):
         if p_v:
             return max(self.price[self.current_time - n, self.current_time])
         else:
-            return max(self.volum[self.current_time - n, self.current_time])
+            return max(self.volume[self.current_time - n, self.current_time])
 
     def min(self, p_v, n):
         if p_v:
             return min(self.price[self.current_time - n, self.current_time])
         else:
-            return min(self.volum[self.current_time - n, self.current_time])
+            return min(self.volume[self.current_time - n, self.current_time])
 
     def lag(self, p_v, n):
         if p_v:
             return self.price[self.current_time - n]
         else:
-            return self.volum[self.current_time - n]
+            return self.volume[self.current_time - n]
 
     def volatility(self, n):
         avg = sum(self.price) / len(self.price)
         return sum((x - avg) ** 2 for x in self.price) / len(self.price)
 
 
-FUNCTIONS = []
-TERMINALS = ['x', -2, -1, 0, 1, 2]
+# import data
+df = pd.read_csv('BINANCE_ETHBTC_H4.csv')
+price_pseries = df.open
+volume_pseries = df.volume
+
+func = Functions(price_pseries, volume_pseries)
+arithmetic_funcs = [func.add, func.sub, func.mul, func.div, func.norm]
+boolean_funcs = [func.and_f, func.or_f]
+number_to_boolean_funcs = [func.larger, func.smaller]
+price_volume_funcs = [func.min, func.max, func.lag, func.average]
+FUNCTIONS = arithmetic_funcs + boolean_funcs + number_to_boolean_funcs + price_volume_funcs
+
+boolean_terms = [True,False]
+n_terms = [2,6,12,18,42,360,720]# 8h, 1d, 2d, 3d, 7d, 30d, 60d
+random_terms =[-2, -1, 0, 1, 2]
+TERMINALS = boolean_terms + n_terms + random_terms
 
 
 def target_func(x):  # evolution's target
