@@ -1,0 +1,6 @@
+numpy
+bs4
+requests
+yfinance
+datetime
+lxml
