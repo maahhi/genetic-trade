@@ -2,7 +2,7 @@
 from random import random, randint, seed
 from statistics import mean
 from copy import deepcopy
-import math
+from Functions import Functions
 import pandas as pd
 
 POP_SIZE = 60  # population size
@@ -12,83 +12,6 @@ GENERATIONS = 250  # maximal number of generations to run evolution
 TOURNAMENT_SIZE = 5  # size of tournament for tournament selection
 XO_RATE = 0.8  # crossover rate
 PROB_MUTATION = 0.2  # per-node mutation probability
-
-
-class Functions:
-
-    def __init__(self, price_series, volume_series, time):
-        self.price = price_series
-        self.volume = volume_series
-        self.current_time = time
-
-    @staticmethod
-    def add(x, y): return x + y
-
-    @staticmethod
-    def sub(x, y): return x - y
-
-    @staticmethod
-    def norm(x, y): return abs(x-y)
-
-    @staticmethod
-    def mul(x, y): return x * y
-
-    @staticmethod
-    def div(x, y):
-        if y!= 0:
-            return x / y
-        else:
-            return math.inf
-
-    @staticmethod
-    def and_f(x, y): return x and y
-
-    @staticmethod
-    def or_f(x, y): return x or y
-
-    @staticmethod
-    def not_f(x): return not x
-
-    @staticmethod
-    def larger(x, y): return x > y
-
-    @staticmethod
-    def smaller(x, y): return x < y
-
-    @staticmethod
-    def if_then_else(x, y, z):
-        if x:
-            return y
-        else:
-            return z
-
-    def average(self, p_v, n):
-        if p_v:
-            return self.price[self.current_time - n, self.current_time] / n
-        else:
-            return self.volume[self.current_time - n, self.current_time] / n
-
-    def max(self, p_v, n):
-        if p_v:
-            return max(self.price[self.current_time - n, self.current_time])
-        else:
-            return max(self.volume[self.current_time - n, self.current_time])
-
-    def min(self, p_v, n):
-        if p_v:
-            return min(self.price[self.current_time - n, self.current_time])
-        else:
-            return min(self.volume[self.current_time - n, self.current_time])
-
-    def lag(self, p_v, n):
-        if p_v:
-            return self.price[self.current_time - n]
-        else:
-            return self.volume[self.current_time - n]
-
-    def volatility(self, n):
-        avg = sum(self.price) / len(self.price)
-        return sum((x - avg) ** 2 for x in self.price) / len(self.price)
 
 
 # import data
@@ -104,7 +27,7 @@ price_volume_funcs = [func.min, func.max, func.lag, func.average]
 FUNCTIONS = arithmetic_funcs + boolean_funcs + number_to_boolean_funcs + price_volume_funcs
 FUNCS_info = {'add':['n','n','n'],'sub':['n','n', 'n'],'mul':['n','n','n'],'div':['n','n','n'],'norm':['n','n','n'],
               'and_f':['b','b','b'],'or_f':['b','b','b'],
-              'larger':['b','n','n'],'larger':['b','n','n'],
+              'larger':['b','n','n'],'smaller':['b','n','n'],
               'min':['n','b','nn'],'max':['n','b','nn'],'lag':['n','b','nn'],'average':['n','b','nn'],}
 boolean_terms = [True,False]
 n_terms = [2,6,12,18,42,360,720]# 8h, 1d, 2d, 3d, 7d, 30d, 60d
@@ -131,8 +54,8 @@ class GPTree:
         self.right = right
 
         if data in FUNCTIONS:
-            self.left_type = FUNCS_info[data.__name__][2]
-            self.right_type = FUNCS_info[data.__name__][1]
+            self.left_type = FUNCS_info[data.__name__][1]
+            self.right_type = FUNCS_info[data.__name__][2]
             self.output_type = FUNCS_info[data.__name__][0]
         if data in TERMINALS:
             self.right_type = None
@@ -151,26 +74,11 @@ class GPTree:
         if self.right: self.right.print_tree(prefix + "   ")
 
     def compute_tree(self, x):
+
         if (self.data in FUNCTIONS):
             return self.data(self.left.compute_tree(x), self.right.compute_tree(x))
         else:
             return self.data
-
-    def random_tree(self, grow, max_depth, depth=0):  # create random tree using either grow or full method
-        if depth < MIN_DEPTH or (depth < max_depth and not grow):
-            self.data = FUNCTIONS[randint(0, len(FUNCTIONS) - 1)]
-        elif depth >= max_depth:
-            self.data = TERMINALS[randint(0, len(TERMINALS) - 1)]
-        else:  # intermediate depth, grow
-            if random() > 0.5:
-                self.data = TERMINALS[randint(0, len(TERMINALS) - 1)]
-            else:
-                self.data = FUNCTIONS[randint(0, len(FUNCTIONS) - 1)]
-        if self.data in FUNCTIONS:
-            self.left = GPTree()
-            self.left.random_tree(grow, max_depth, depth=depth + 1)
-            self.right = GPTree()
-            self.right.random_tree(grow, max_depth, depth=depth + 1)
 
     def mutation(self):
         if random() < PROB_MUTATION:  # mutate at this node
@@ -215,51 +123,45 @@ class GPTree:
 
     def tree_constructor(self, depth):
         if self.right_type == 'b':
-            if not depth + 1 >= MAX_DEPTH or random < 0.3:
+            if depth + 1 >= MAX_DEPTH or random() < 0.3:
                 possible_terminals = boolean_terms
-                self.right = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
-                return
+                self.right = GPTree(possible_terminals[randint(0, len(possible_terminals) - 1)])
             else:
                 possible_functions = boolean_funcs + number_to_boolean_funcs
-                self.right = GPTree(possible_functions[randint[0, len(possible_functions) - 1]])
+                self.right = GPTree(possible_functions[randint(0, len(possible_functions) - 1)])
                 self.right.tree_constructor(depth + 1)
         elif self.right_type == 'n':
-            if not depth + 1 >= MAX_DEPTH or random < 0.3:
+            if depth + 1 >= MAX_DEPTH or random() < 0.3:
                 possible_terminals = random_terms
-                self.right = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
-                return
+                self.right = GPTree(possible_terminals[randint(0, len(possible_terminals) - 1)])
             else:
-                possible_functions = arithmetic_funcs + price_volume_funcs
-                self.right = GPTree(possible_functions[randint[0, len(possible_functions) - 1]])
+                possible_functions = arithmetic_funcs + price_volume_funcs + price_volume_funcs
+                self.right = GPTree(possible_functions[randint(0, len(possible_functions) - 1)])
                 self.right.tree_constructor(depth + 1)
         elif self.right_type == 'nn':
             possible_terminals = n_terms
-            self.right = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
-            return
+            self.right = GPTree(possible_terminals[randint(0, len(possible_terminals) - 1)])
         else:
             print("in tree constructor, right life is None ! ")
         if self.left_type == 'b':
-            if not depth + 1 >= MAX_DEPTH or random < 0.3:
+            if not depth + 1 >= MAX_DEPTH or random() < 0.3:
                 possible_terminals = boolean_terms
-                self.left = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
-                return
+                self.left = GPTree(possible_terminals[randint(0, len(possible_terminals) - 1)])
             else:
                 possible_functions = boolean_funcs + number_to_boolean_funcs
-                self.left = GPTree(possible_functions[randint[0, len(possible_functions) - 1]])
+                self.left = GPTree(possible_functions[randint(0, len(possible_functions) - 1)])
                 self.left.tree_constructor(depth + 1)
         elif self.left_type == 'n':
-            if not depth + 1 >= MAX_DEPTH or random < 0.3:
+            if not depth + 1 >= MAX_DEPTH or random() < 0.3:
                 possible_terminals = random_terms
-                self.left = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
-                return
+                self.left = GPTree(possible_terminals[randint(0, len(possible_terminals) - 1)])
             else:
-                possible_functions = arithmetic_funcs + price_volume_funcs
-                self.left = GPTree(possible_functions[randint[0, len(possible_functions) - 1]])
+                possible_functions = arithmetic_funcs + price_volume_funcs + price_volume_funcs
+                self.left = GPTree(possible_functions[randint(0, len(possible_functions) - 1)])
                 self.left.tree_constructor(depth + 1)
         elif self.left_type == 'nn':
             possible_terminals = n_terms
-            self.left = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
-            return
+            self.left = GPTree(possible_terminals[randint(0, len(possible_terminals) - 1)])
         else:
             print("in tree constructor, left life is None ! ")
 
@@ -268,16 +170,19 @@ def init_population():
     pop = []
     for i in range(POP_SIZE):
         if random() > 0.5:
-            root = GPTree(data=boolean_funcs[randint[0, len(boolean_funcs) - 1]])
+            root = GPTree(boolean_funcs[randint(0, len(boolean_funcs) - 1)])
             root.tree_constructor(depth=1)
         else:
-            root = GPTree(data=number_to_boolean_funcs[randint[0, len(number_to_boolean_funcs) - 1]])
+            root = GPTree(number_to_boolean_funcs[randint(0, len(number_to_boolean_funcs) - 1)])
             root.tree_constructor(depth=1)
         pop.append(root)
     return pop
 
 
-def fitness(individual, dataset):  # inverse mean absolute error over dataset normalized to [0,1]
+def fitness(individual, dataset,time):  # inverse mean absolute error over dataset normalized to [0,1]
+    print("newfitness")
+    print(individual.print_tree())
+    func.set_time(time)
     return 1 / (1 + mean([abs(individual.compute_tree(ds[0]) - ds[1]) for ds in dataset]))
 
 
@@ -295,7 +200,8 @@ def main():
     best_of_run = None
     best_of_run_f = 0
     best_of_run_gen = 0
-    fitnesses = [fitness(population[i], dataset) for i in range(POP_SIZE)]
+    time = randint(0,len(price_pseries)-1)
+    fitnesses = [fitness(population[i], dataset,time) for i in range(POP_SIZE)]
 
     # go evolution!
     for gen in range(GENERATIONS):
