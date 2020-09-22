@@ -31,7 +31,7 @@ FUNCS_info = {'add':['n','n','n'],'sub':['n','n', 'n'],'mul':['n','n','n'],'div'
               'min':['n','b','nn'],'max':['n','b','nn'],'lag':['n','b','nn'],'average':['n','b','nn'],}
 boolean_terms = [True,False]
 n_terms = [2,6,12,18,42,360,720]# 8h, 1d, 2d, 3d, 7d, 30d, 60d
-random_terms =[-2, -1, 0, 1, 2]
+random_terms =[-2, -1, -0.2, -0.5, -0.8, 0, 0.2, 0.5, 0.8, 1, 2]
 TERMINALS = boolean_terms + n_terms + random_terms
 
 
@@ -73,10 +73,10 @@ class GPTree:
         if self.left:  self.left.print_tree(prefix + "   ")
         if self.right: self.right.print_tree(prefix + "   ")
 
-    def compute_tree(self, x):
+    def compute_tree(self):
 
         if (self.data in FUNCTIONS):
-            return self.data(self.left.compute_tree(x), self.right.compute_tree(x))
+            return self.data(self.left.compute_tree(), self.right.compute_tree())
         else:
             return self.data
 
@@ -104,7 +104,7 @@ class GPTree:
     def scan_tree(self, count, second):  # note: count is list, so it's passed "by reference"
         count[0] -= 1
         if count[0] <= 1:
-            if not second:  # return subtree rooted here
+            if not second:  # return subtree rooted here --None--
                 return self.build_subtree()
             else:  # glue subtree here
                 self.data = second.data
@@ -117,8 +117,11 @@ class GPTree:
             return ret
 
     def crossover(self, other):  # xo 2 trees at random nodes
+
+        other
         if random() < XO_RATE:
             second = other.scan_tree([randint(1, other.size())], None)  # 2nd random subtree
+            second.output_type
             self.scan_tree([randint(1, self.size())], second)  # 2nd subtree "glued" inside 1st tree
 
     def tree_constructor(self, depth):
@@ -179,11 +182,32 @@ def init_population():
     return pop
 
 
-def fitness(individual, dataset,time):  # inverse mean absolute error over dataset normalized to [0,1]
-    print("newfitness")
+def fitness(individual, dataset):  # inverse mean absolute error over dataset normalized to [0,1]
+    # print("newfitness")
     print(individual.print_tree())
-    func.set_time(time)
-    return 1 / (1 + mean([abs(individual.compute_tree(ds[0]) - ds[1]) for ds in dataset]))
+    value = 0
+    prev_buy_not_sell_signal = None
+    state = 0
+    for time in range(max(n_terms),max(n_terms)+450):
+        func.set_time(time)
+        buy_not_sell_signal = individual.compute_tree()
+        if prev_buy_not_sell_signal is not None:
+            if buy_not_sell_signal == prev_buy_not_sell_signal:
+                continue
+        if buy_not_sell_signal:
+            # buying
+            value -= price_pseries[time]
+            state += 1
+        else:
+            # selling
+            value += price_pseries[time]
+            state -=1
+        prev_buy_not_sell_signal = buy_not_sell_signal
+    if state == 1:
+        value += price_pseries[time]
+    elif state == -1:
+        value -= price_pseries[time]
+    return value
 
 
 def selection(population, fitnesses):  # select one individual using tournament selection
@@ -201,7 +225,8 @@ def main():
     best_of_run_f = 0
     best_of_run_gen = 0
     time = randint(0,len(price_pseries)-1)
-    fitnesses = [fitness(population[i], dataset,time) for i in range(POP_SIZE)]
+    fitnesses = [fitness(population[i], dataset) for i in range(POP_SIZE)]
+    print(fitnesses)
 
     # go evolution!
     for gen in range(GENERATIONS):
