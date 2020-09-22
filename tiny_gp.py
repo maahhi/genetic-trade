@@ -102,7 +102,10 @@ boolean_funcs = [func.and_f, func.or_f]
 number_to_boolean_funcs = [func.larger, func.smaller]
 price_volume_funcs = [func.min, func.max, func.lag, func.average]
 FUNCTIONS = arithmetic_funcs + boolean_funcs + number_to_boolean_funcs + price_volume_funcs
-
+FUNCS_info = {'add':['n','n','n'],'sub':['n','n', 'n'],'mul':['n','n','n'],'div':['n','n','n'],'norm':['n','n','n'],
+              'and_f':['b','b','b'],'or_f':['b','b','b'],
+              'larger':['b','n','n'],'larger':['b','n','n'],
+              'min':['n','b','nn'],'max':['n','b','nn'],'lag':['n','b','nn'],'average':['n','b','nn'],}
 boolean_terms = [True,False]
 n_terms = [2,6,12,18,42,360,720]# 8h, 1d, 2d, 3d, 7d, 30d, 60d
 random_terms =[-2, -1, 0, 1, 2]
@@ -127,6 +130,15 @@ class GPTree:
         self.left = left
         self.right = right
 
+        if data in FUNCTIONS:
+            self.left_type = FUNCS_info[data.__name__][2]
+            self.right_type = FUNCS_info[data.__name__][1]
+            self.output_type = FUNCS_info[data.__name__][0]
+        if data in TERMINALS:
+            self.right_type = None
+            self.left_type = None
+            self.output_type = None
+
     def node_label(self):  # string label
         if (self.data in FUNCTIONS):
             return self.data.__name__
@@ -141,8 +153,6 @@ class GPTree:
     def compute_tree(self, x):
         if (self.data in FUNCTIONS):
             return self.data(self.left.compute_tree(x), self.right.compute_tree(x))
-        elif self.data == 'x':
-            return x
         else:
             return self.data
 
@@ -203,20 +213,67 @@ class GPTree:
             second = other.scan_tree([randint(1, other.size())], None)  # 2nd random subtree
             self.scan_tree([randint(1, self.size())], second)  # 2nd subtree "glued" inside 1st tree
 
+    def tree_constructor(self, depth):
+        if self.right_type == 'b':
+            if not depth + 1 >= MAX_DEPTH or random < 0.3:
+                possible_terminals = boolean_terms
+                self.right = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
+                return
+            else:
+                possible_functions = boolean_funcs + number_to_boolean_funcs
+                self.right = GPTree(possible_functions[randint[0, len(possible_functions) - 1]])
+                self.right.tree_constructor(depth + 1)
+        elif self.right_type == 'n':
+            if not depth + 1 >= MAX_DEPTH or random < 0.3:
+                possible_terminals = random_terms
+                self.right = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
+                return
+            else:
+                possible_functions = arithmetic_funcs + price_volume_funcs
+                self.right = GPTree(possible_functions[randint[0, len(possible_functions) - 1]])
+                self.right.tree_constructor(depth + 1)
+        elif self.right_type == 'nn':
+            possible_terminals = n_terms
+            self.right = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
+            return
+        else:
+            print("in tree constructor, right life is None ! ")
+        if self.left_type == 'b':
+            if not depth + 1 >= MAX_DEPTH or random < 0.3:
+                possible_terminals = boolean_terms
+                self.left = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
+                return
+            else:
+                possible_functions = boolean_funcs + number_to_boolean_funcs
+                self.left = GPTree(possible_functions[randint[0, len(possible_functions) - 1]])
+                self.left.tree_constructor(depth + 1)
+        elif self.left_type == 'n':
+            if not depth + 1 >= MAX_DEPTH or random < 0.3:
+                possible_terminals = random_terms
+                self.left = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
+                return
+            else:
+                possible_functions = arithmetic_funcs + price_volume_funcs
+                self.left = GPTree(possible_functions[randint[0, len(possible_functions) - 1]])
+                self.left.tree_constructor(depth + 1)
+        elif self.left_type == 'nn':
+            possible_terminals = n_terms
+            self.left = GPTree(possible_terminals[randint[0, len(possible_terminals) - 1]])
+            return
+        else:
+            print("in tree constructor, left life is None ! ")
 
-# end class GPTree
 
-def init_population():  # ramped half-and-half
+def init_population():
     pop = []
-    for md in range(3, MAX_DEPTH + 1):
-        for i in range(int(POP_SIZE / 6)):
-            t = GPTree()
-            t.random_tree(grow=True, max_depth=md)  # grow
-            pop.append(t)
-        for i in range(int(POP_SIZE / 6)):
-            t = GPTree()
-            t.random_tree(grow=False, max_depth=md)  # full
-            pop.append(t)
+    for i in range(POP_SIZE):
+        if random() > 0.5:
+            root = GPTree(data=boolean_funcs[randint[0, len(boolean_funcs) - 1]])
+            root.tree_constructor(depth=1)
+        else:
+            root = GPTree(data=number_to_boolean_funcs[randint[0, len(number_to_boolean_funcs) - 1]])
+            root.tree_constructor(depth=1)
+        pop.append(root)
     return pop
 
 
